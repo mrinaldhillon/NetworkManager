@@ -12120,6 +12120,7 @@ _set_state_full (NMDevice *self,
 		if (priv->proxy_config) {
 			nm_pacrunner_manager_send (priv->pacrunner_manager,
 			                           nm_device_get_ip_iface (self),
+			                           nm_device_get_ip_iface (self),
 			                           priv->proxy_config,
 			                           priv->ip4_config,
 			                           priv->ip6_config);
