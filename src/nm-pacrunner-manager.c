@@ -43,6 +43,7 @@ typedef struct {
 	char *iface;
 	GPtrArray *domains;
 	GDBusProxy *pacrunner;
+	gboolean pacrunner_running;
 	GCancellable *pacrunner_cancellable;
 	GList *args;
 	GList *remove;
@@ -235,15 +236,16 @@ send_pacrunner_proxy_data (NMPacrunnerManager *self, GVariant *pacrunner_manager
 	if (!pacrunner_manager_args)
 		return;
 
-	if (priv->pacrunner)
+	if (priv->pacrunner && priv->pacrunner_running) {
 		g_dbus_proxy_call (priv->pacrunner,
 		                   "CreateProxyConfiguration",
 		                   pacrunner_manager_args,
-		                   G_DBUS_CALL_FLAGS_NONE,
+		                   G_DBUS_CALL_FLAGS_NO_AUTO_START,
 		                   -1,
 		                   NULL,
 		                  (GAsyncReadyCallback) pacrunner_send_done,
 		                   self);
+	}
 }
 
 static void
@@ -257,12 +259,18 @@ name_owner_changed (GObject *object,
 	GList *iter = NULL;
 
 	owner = g_dbus_proxy_get_name_owner (G_DBUS_PROXY (object));
+
+	if (!!owner == priv->pacrunner_running)
+		return;
+
 	if (owner) {
+		priv->pacrunner_running = TRUE;
 		_LOGD ("pacrunner appeared as %s", owner);
 		for (iter = g_list_first(priv->args); iter; iter = g_list_next(iter)) {
 			send_pacrunner_proxy_data (self, iter->data);
 		}
 	} else {
+		priv->pacrunner_running = FALSE;
 		_LOGD ("pacrunner disappeared");
 	}
 }
@@ -290,6 +298,7 @@ pacrunner_proxy_cb (GObject *source, GAsyncResult *res, gpointer user_data)
 
 	g_signal_connect (priv->pacrunner, "notify::g-name-owner",
 	                  G_CALLBACK (name_owner_changed), self);
+	name_owner_changed (G_OBJECT (priv->pacrunner), NULL, self);
 }
 
 /**
@@ -402,18 +411,19 @@ nm_pacrunner_manager_remove (NMPacrunnerManager *self, const char *iface)
 	NMPacrunnerManagerPrivate *priv = NM_PACRUNNER_MANAGER_GET_PRIVATE (self);
 	GList *list;
 
-	for (list = g_list_first(priv->remove); list; list = g_list_next(list)) {
+	for (list = g_list_first (priv->remove); list; list = g_list_next (list)) {
 		struct remove_data *data = list->data;
 		if (g_strcmp0 (data->iface, iface) == 0) {
-			if (priv->pacrunner && data->path)
+			if (priv->pacrunner  && priv->pacrunner_running && data->path) {
 				g_dbus_proxy_call (priv->pacrunner,
 				                   "DestroyProxyConfiguration",
 				                   g_variant_new ("(o)", data->path),
-				                   G_DBUS_CALL_FLAGS_NONE,
+				                   G_DBUS_CALL_FLAGS_NO_AUTO_START,
 				                   -1,
 				                   NULL,
 				                  (GAsyncReadyCallback) pacrunner_remove_done,
 				                   self);
+			}
 			break;
 		}
 	}
@@ -429,7 +439,7 @@ nm_pacrunner_manager_init (NMPacrunnerManager *self)
 	priv->pacrunner_cancellable = g_cancellable_new ();
 
 	g_dbus_proxy_new_for_bus (G_BUS_TYPE_SYSTEM,
-	                          G_DBUS_PROXY_FLAGS_NONE,
+	                          G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START,
 	                          NULL,
 	                          PACRUNNER_DBUS_SERVICE,
 	                          PACRUNNER_DBUS_PATH,
