@@ -1053,7 +1053,7 @@ wifi_nl80211_init (int ifindex)
 	if (!nmp_utils_if_indextoname (ifindex, ifname)) {
 		_LOGW (LOGD_PLATFORM | LOGD_WIFI,
 		       "can't determine interface name for ifindex %d", ifindex);
-		return NULL;
+		nm_sprintf_buf (ifname, "if %d", ifindex);
 	}
 
 	nl80211 = wifi_data_new (ifindex, sizeof (*nl80211));
