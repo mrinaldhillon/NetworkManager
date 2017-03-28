@@ -870,7 +870,7 @@ parse_output_fields (const char *fields_str,
 
 			for (i = 0; fields_array[i].name; i++) {
 				if (strcasecmp (left, fields_array[i].name) == 0) {
-					const NmcSettingInfo *setting_info = fields_array[i].setting_info;
+					const NMMetaSettingInfoEditor *setting_info = fields_array[i].setting_info;
 
 					idx = i;
 					if (!right && !setting_info) {
@@ -951,7 +951,7 @@ nmc_get_allowed_fields (const NmcOutputField fields_array[], int group_idx)
 	int i;
 
 	if (group_idx != -1 && fields_array[group_idx].setting_info) {
-		const NmcSettingInfo *second_level = fields_array[group_idx].setting_info;
+		const NMMetaSettingInfoEditor *second_level = fields_array[group_idx].setting_info;
 
 		for (i = 1; i < second_level->properties_num; i++) {
 			g_string_append_printf (allowed_fields, "%s.%s,",
